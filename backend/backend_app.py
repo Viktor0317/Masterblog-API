@@ -1,8 +1,19 @@
+"""
+Masterblog API - A RESTful API for managing blog posts.
+
+This API allows users to create, retrieve, update, and delete blog posts.
+It also supports searching and sorting posts.
+
+Author: Nikola Brajkovic
+Date: 2025-02-07
+"""
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from flask_swagger_ui import get_swaggerui_blueprint
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)
 
 # Sample data
 POSTS = [
@@ -11,23 +22,44 @@ POSTS = [
     {"id": 3, "title": "Flask API", "content": "Learn how to build RESTful APIs with Flask."},
 ]
 
+# Swagger configuration
+SWAGGER_URL = "/api/docs"
+API_URL = "/static/masterblog.json"
+
+swagger_ui_blueprint = get_swaggerui_blueprint(
+    SWAGGER_URL,
+    API_URL,
+    config={"app_name": "Masterblog API"}
+)
+
+app.register_blueprint(swagger_ui_blueprint, url_prefix=SWAGGER_URL)
+
 
 @app.route('/api/posts', methods=['GET'])
 def get_posts():
-    """Returns all blog posts with optional sorting"""
+    """
+    Retrieve all blog posts.
+
+    Optional query parameters:
+    - sort: Sort posts by 'title' or 'content'.
+    - direction: Sort order, 'asc' (ascending) or 'desc' (descending).
+
+    Returns:
+        JSON response containing a list of posts.
+    """
     sort_field = request.args.get('sort')
     direction = request.args.get('direction', 'asc').lower()
 
-    # Validate sorting field if provided
+    # Validate sorting field
     valid_sort_fields = {"title", "content"}
     if sort_field and sort_field not in valid_sort_fields:
         return jsonify({"error": f"Invalid sort field. Allowed values: {list(valid_sort_fields)}"}), 400
 
-    # Validate direction if provided
+    # Validate direction
     if direction not in {"asc", "desc"}:
         return jsonify({"error": "Invalid direction. Allowed values: 'asc', 'desc'"}), 400
 
-    # Apply sorting if a valid sort field is provided
+    # Sort posts if valid sort field is provided
     sorted_posts = sorted(POSTS, key=lambda post: post[sort_field].lower(), reverse=(direction == "desc")) if sort_field else POSTS
 
     return jsonify(sorted_posts), 200
@@ -35,24 +67,31 @@ def get_posts():
 
 @app.route('/api/posts', methods=['POST'])
 def add_post():
-    """Handles adding a new post"""
+    """
+    Create a new blog post.
+
+    Request Body (JSON):
+    {
+        "title": "Post Title",
+        "content": "Post Content"
+    }
+
+    Returns:
+        JSON response containing the created post.
+    """
     data = request.get_json()
 
-    # Validate input
     if not data or 'title' not in data or 'content' not in data:
         return jsonify({"error": "Both 'title' and 'content' are required"}), 400
 
-    # Generate a unique ID
     new_id = POSTS[-1]['id'] + 1 if POSTS else 1
 
-    # Create new post object
     new_post = {
         "id": new_id,
         "title": data["title"],
         "content": data["content"]
     }
 
-    # Add new post to the list
     POSTS.append(new_post)
 
     return jsonify(new_post), 201
@@ -60,16 +99,22 @@ def add_post():
 
 @app.route('/api/posts/<int:post_id>', methods=['DELETE'])
 def delete_post(post_id):
-    """Handles deleting a post by its ID"""
+    """
+    Delete a blog post by its ID.
+
+    Args:
+        post_id (int): The ID of the post to delete.
+
+    Returns:
+        JSON response confirming the deletion or an error message if not found.
+    """
     global POSTS
 
-    # Find the index of the post
     post_index = next((index for index, post in enumerate(POSTS) if post["id"] == post_id), None)
 
     if post_index is None:
         return jsonify({"error": f"Post with id {post_id} not found."}), 404
 
-    # Remove the post
     deleted_post = POSTS.pop(post_index)
 
     return jsonify({"message": f"Post with id {deleted_post['id']} has been deleted successfully."}), 200
@@ -77,16 +122,28 @@ def delete_post(post_id):
 
 @app.route('/api/posts/<int:post_id>', methods=['PUT'])
 def update_post(post_id):
-    """Handles updating an existing post"""
+    """
+    Update an existing blog post.
+
+    Args:
+        post_id (int): The ID of the post to update.
+
+    Request Body (JSON):
+    {
+        "title": "Updated Title",
+        "content": "Updated Content"
+    }
+
+    Returns:
+        JSON response containing the updated post or an error message if not found.
+    """
     data = request.get_json()
 
-    # Find the post
     post = next((post for post in POSTS if post["id"] == post_id), None)
 
     if post is None:
         return jsonify({"error": f"Post with id {post_id} not found."}), 404
 
-    # Update fields if provided, otherwise keep the old values
     post["title"] = data.get("title", post["title"])
     post["content"] = data.get("content", post["content"])
 
@@ -95,11 +152,19 @@ def update_post(post_id):
 
 @app.route('/api/posts/search', methods=['GET'])
 def search_posts():
-    """Search posts by title or content"""
+    """
+    Search for blog posts by title or content.
+
+    Query Parameters:
+    - title (str): Search term for the title.
+    - content (str): Search term for the content.
+
+    Returns:
+        JSON response containing matching posts.
+    """
     title_query = request.args.get('title', '').lower()
     content_query = request.args.get('content', '').lower()
 
-    # Filter posts based on search query
     matching_posts = [
         post for post in POSTS
         if (title_query and title_query in post["title"].lower()) or

@@ -13,7 +13,7 @@ This is a project created as part of the Masterschool curriculum.
 
 ---
 
-![Alt Text](assets/screenshot.png)
+![Alt Text](assets/Screenshot.png)
 
 ---
 
